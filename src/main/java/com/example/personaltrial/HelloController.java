@@ -66,10 +66,10 @@ public class HelloController {
 
     @FXML
     void onDownload(ActionEvent event) throws FileNotFoundException {
-//        Show the save dialogbox and add filters
+        // Show the save dialog box and add filters
         dialogbox.getExtensionFilters().add(new FileChooser.ExtensionFilter("Text Files", "*.txt"));
-//        Display
-        File groupedFile = dialogbox.showOpenDialog(new Stage());
+        // Display save dialog instead of open dialog
+        File groupedFile = dialogbox.showSaveDialog(new Stage());
         if (groupedFile != null) {
             PrintWriter outputFile = new PrintWriter(groupedFile);
             outputFile.println(txtDisplay.getText());
