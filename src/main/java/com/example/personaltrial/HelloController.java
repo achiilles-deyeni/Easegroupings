@@ -1,5 +1,6 @@
 package com.example.personaltrial;
 
+import javafx.scene.input.KeyEvent;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
@@ -10,14 +11,16 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.io.*;
+import java.net.URL;
 import java.util.*;
 
-public class HelloController {
+public class HelloController implements Initializable {
 
     @FXML
     private Button btnDownload;
@@ -49,8 +52,47 @@ public class HelloController {
     @FXML
     private TextArea txtDisplay;
 
-    //    Declaring a dialogbox
+    // Declaring a dialogbox
     FileChooser dialogbox = new FileChooser();
+
+    File selectedFile = null;
+    Scanner inputFile = null;
+    List<String> data = new ArrayList<>();
+    PrintWriter outputFile = null;
+    private boolean isManualInput = false;
+
+    @Override
+    public void initialize(URL url, ResourceBundle resourceBundle) {
+        // Initialize button states - disable download and group buttons when starting
+        updateButtonStates();
+        // Initialize character count
+        lblCharacters.setText("Character count: 0");
+
+        // Add listener to txtDisplay to detect direct input
+        txtDisplay.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (!newValue.equals(oldValue)) {
+                // User is typing directly
+                isManualInput = true;
+                updateButtonStates();
+            }
+        });
+    }
+
+    @FXML
+    void getCharacters(KeyEvent event) {
+        lblCharacters.setText("Character count: " + txtDisplay.getText().length());
+        // Update button states whenever text changes
+        updateButtonStates();
+    }
+
+    // Helper method to update button states based on txtDisplay content
+    private void updateButtonStates() {
+        boolean isEmpty = txtDisplay.getText().isEmpty();
+        btnDownload.setDisable(isEmpty);
+
+        // Enable group button if there's text, regardless of whether a file is loaded
+        btnGroup.setDisable(isEmpty);
+    }
 
     @FXML
     void onCancel(ActionEvent event) {
@@ -65,15 +107,14 @@ public class HelloController {
         // Update character count label
         lblCharacters.setText("Character count: 0");
 
-        // Disable buttons since there's no content
-        btnDownload.setDisable(true);
-        btnGroup.setDisable(true);
-
         // Reset the selectedFile
         selectedFile = null;
         data.clear();
-    }
+        isManualInput = false;
 
+        // Update button states
+        updateButtonStates();
+    }
 
     @FXML
     void onDownload(ActionEvent event) throws FileNotFoundException {
@@ -102,8 +143,12 @@ public class HelloController {
             }
 
             txtDisplay.clear();
-            lblCharacters.setText(txtDisplay.getText());
-            btnGroup.setDisable(false);
+            lblCharacters.setText("Character count: 0");
+            txtMembers.setText("");
+            isManualInput = false;
+
+            // Update button states after clearing
+            updateButtonStates();
         }
     }
 
@@ -136,12 +181,8 @@ public class HelloController {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
     }
-    File selectedFile = null;
-    Scanner inputFile = null;
-    List<String> data = new ArrayList<>();
-    PrintWriter outputFile = null;
+
     @FXML
     void onUpload(ActionEvent event) {
         try {
@@ -160,6 +201,7 @@ public class HelloController {
             if (selectedFile != null) {
                 // Clear content that was already on the txtDisplay
                 txtDisplay.setText("");
+                isManualInput = false;
 
                 // Check file type and process accordingly
                 if (selectedFile.getName().endsWith(".xlsx") || selectedFile.getName().endsWith(".xls")) {
@@ -174,7 +216,10 @@ public class HelloController {
                     inputFile.close();
                 }
 
-                lblCharacters.setText("Characters: " + selectedFile.length());
+                lblCharacters.setText("Character count: " + txtDisplay.getText().length());
+
+                // Update button states after loading content
+                updateButtonStates();
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -245,31 +290,92 @@ public class HelloController {
             return; // Exit the method early
         }
 
-        // Check if file is selected
-        if (selectedFile == null) {
+        // Check if there's any content to group
+        if (txtDisplay.getText().isEmpty()) {
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setTitle("Input Error");
-            alert.setHeaderText("Missing File");
-            alert.setContentText("Please upload a file first");
+            alert.setHeaderText("No Names to Group");
+            alert.setContentText("Please enter names or upload a file first");
             alert.showAndWait();
             return;
         }
 
-        txtDisplay.clear(); // Clear display once at the beginning
+        // Store current content before clearing
+        String originalContent = txtDisplay.getText();
+        txtDisplay.clear();
+
         int number = Integer.parseInt(txtMembers.getText());
 
-        if (selectedFile.getName().endsWith(".txt")) {
-            // Handle text file grouping
-            processTextFile(number);
-        } else if (selectedFile.getName().endsWith(".xlsx") || selectedFile.getName().endsWith(".xls")) {
-            // Handle Excel file grouping
-            processExcelFile(number);
+        if (selectedFile != null && !isManualInput) {
+            // Process from file if a file was uploaded
+            if (selectedFile.getName().endsWith(".txt")) {
+                // Handle text file grouping
+                processTextFile(number);
+            } else if (selectedFile.getName().endsWith(".xlsx") || selectedFile.getName().endsWith(".xls")) {
+                // Handle Excel file grouping
+                processExcelFile(number);
+            }
+        } else {
+            // Process manually entered names
+            processManualInput(originalContent, number);
         }
 
-        if (!txtDisplay.getText().isEmpty()) {
-            btnDownload.setDisable(false);
+        // Update button states after processing
+        updateButtonStates();
+    }
+
+    // New method to process manually entered names
+    private void processManualInput(String content, int number) {
+        // Clear previous data
+        data.clear();
+
+        // Split the content by line breaks
+        String[] lines = content.split("\n");
+
+        // Add non-empty lines to the data list
+        for (String line : lines) {
+            if (!line.trim().isEmpty()) {
+                data.add(line.trim());
+            }
         }
-        btnGroup.setDisable(true);
+
+        Random rand = new Random();
+        int groupNum = 1;
+
+        // Create a copy of the data list to avoid duplicates
+        List<String> remainingData = new ArrayList<>(data);
+
+        // Loop through to get all names
+        while (remainingData.size() >= number) {
+            List<String> selected = new ArrayList<>();
+
+            // Select people randomly
+            for (int i = 0; i < number; i++) {
+                int index = rand.nextInt(remainingData.size());
+                selected.add(remainingData.get(index));
+                remainingData.remove(index);
+            }
+
+            // Append to text display
+            txtDisplay.appendText("Group " + groupNum + ":\n");
+            for (String s : selected) {
+                txtDisplay.appendText(s + "\n");
+            }
+            txtDisplay.appendText("\n");
+
+            groupNum++;
+        }
+
+        // Handle remaining members if any
+        if (!remainingData.isEmpty()) {
+            txtDisplay.appendText("Remaining (not enough for a full group):\n");
+            for (String s : remainingData) {
+                txtDisplay.appendText(s + "\n");
+            }
+        }
+
+        // Update character count
+        lblCharacters.setText("Character count: " + txtDisplay.getText().length());
     }
 
     // Method to process text file for grouping
@@ -321,6 +427,9 @@ public class HelloController {
         }
 
         inputFile.close();
+
+        // Update character count after processing
+        lblCharacters.setText("Character count: " + txtDisplay.getText().length());
     }
 
     // Method to process Excel file for grouping
@@ -338,6 +447,9 @@ public class HelloController {
 
         // Display groups in the text area
         displayStudentGroups(studentGroups);
+
+        // Update character count after processing
+        lblCharacters.setText("Character count: " + txtDisplay.getText().length());
     }
 
     // Modified to read from the selected file
@@ -420,5 +532,3 @@ public class HelloController {
         return studentGroups;
     }
 }
-
-

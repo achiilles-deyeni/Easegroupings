@@ -95,7 +95,7 @@
    <bottom>
       <HBox prefHeight="34.0" prefWidth="596.0" spacing="10.0" BorderPane.alignment="CENTER">
          <children>
-            <Label fx:id="lblCharacters" prefHeight="36.0" prefWidth="120.0" text="Character Count: ">
+            <Label fx:id="lblCharacters" onKeyPressed="#getCharacters" prefHeight="36.0" prefWidth="120.0" text="Character Count: ">
                <padding>
                   <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
                </padding>
